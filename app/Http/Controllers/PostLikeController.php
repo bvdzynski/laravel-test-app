@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Post;
+use App\Mail\PostLiked;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 
 class PostLikeController extends Controller
 {
@@ -12,8 +14,9 @@ class PostLikeController extends Controller
         $this->middleware(['auth']);
     }
 
-    public function save(Post $post, Request $request){
-        if($post->likedBy($request->user())){
+    public function save(Post $post, Request $request)
+    {
+        if ($post->likedBy($request->user())) {
             return response(null, 409);
         }
 
@@ -21,10 +24,15 @@ class PostLikeController extends Controller
             'user_id' => $request->user()->id,
         ]);
 
+        if (!$post->likes()->onlyThrashed()->where('user_id', $request->user()->id)->count()) {
+            Mail::to($post->user)->send(new PostLiked(auth()->user(), $post));
+        }
+
         return back();
     }
 
-    public function delete(Post $post, Request $request){
+    public function delete(Post $post, Request $request)
+    {
         $request->user()->likes()->where('post_id', $post->id)->delete();
 
         return back();
